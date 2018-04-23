@@ -1,10 +1,12 @@
-// Server side C/C++ program to demonstrate Socket programming
+/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 #include <stdio.h>
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+
 #define PORT 8080
+
 int main(int argc, char const *argv[])
 {
     int server_fd, new_socket, valread;
@@ -20,14 +22,16 @@ int main(int argc, char const *argv[])
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
-      
-    // Forcefully attaching socket to the port 8080
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+    
+    /* Breaks the program on Mac; is not nessesary */
+    /* Forcefully attaching socket to the port 8080*/
+    /*if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
                                                   &opt, sizeof(opt)))
     {
         perror("setsockopt");
         exit(EXIT_FAILURE);
-    }
+    }*/
+
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons( PORT );
