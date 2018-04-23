@@ -1,3 +1,6 @@
+/* Compile:
+    gcc server.c -o server 
+*/
 /* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 #include <stdio.h>
 #include <sys/socket.h>

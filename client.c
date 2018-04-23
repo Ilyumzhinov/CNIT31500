@@ -1,6 +1,7 @@
 /* Compile:
     gcc client.c -o client 
 */
+/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 #include <stdio.h>
 #include <sys/socket.h>
 #include <stdlib.h>
