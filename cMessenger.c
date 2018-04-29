@@ -35,22 +35,20 @@ char* ProcessMessage(int size)
     printf("--------\n\n");
 
     /* Process the string */
-    if (47 != messagePtr[0])
+    /* If it starts with "/", it contains a system call */
+    if (47 == messagePtr[0])
     {
-    }
-    else
-    {
-        /* If "\o" close the program */
+        /* If "/c", close the program */
         if (99 == messagePtr[1])
         {
-            /* Reference: https://stackoverflow.com/questions/7973583/how-can-i-immediately-close-a-program-in-c?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
             printf("Close the program\n");
 
             free(messagePtr);
 
+             /* Reference: https://stackoverflow.com/questions/7973583/how-can-i-immediately-close-a-program-in-c?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
             exit(0);
         }
-        /* If "\h" close the program */
+        /* If "/h", print help commands */
         else if (104 == messagePtr[1])
         {
             printf("System commands: \n");
@@ -61,11 +59,14 @@ char* ProcessMessage(int size)
             ProcessMessage(size);
         }
     }
-
-    /* Return the string */
-    return messagePtr;
+    else
+    {
+        /* Return the string */
+        return messagePtr;
+    }
 }
 
+/* Create a listening host using a socket */
 /* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateServer()
 {
@@ -105,13 +106,14 @@ int CreateServer()
         perror("accept");
         exit(EXIT_FAILURE);
     }
-    valread = read( new_socket , buffer, 1024);
-    printf("%s\n",buffer );
-    send(new_socket , hello , strlen(hello) , 0 );
-    printf("Hello message sent\n");
+    valread = read(new_socket, buffer, 1024);
+    printf("%s\n", buffer);
+    send(new_socket, hello, strlen(hello), 0);
+    printf("Server: Hello message sent\n");
     return 0;
 }
 
+/* Create a client by connecting to a listening socket at a specified IP address */
 /* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateClient()
 {
@@ -149,17 +151,17 @@ int CreateClient()
         }
     }
   
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
     {
         printf("\nPort is closed \n");
         return -1;
     }
 
 
-    send(sock , hello , strlen(hello) , 0 );
-    printf("Hello message sent\n");
-    valread = read( sock , buffer, 1024);
-    printf("%s\n",buffer );
+    send(sock, hello, strlen(hello), 0);
+    printf("Client: Hello message sent\n");
+    valread = read(sock, buffer, 1024);
+    printf("%s\n", buffer);
     return 0;
 }
 
