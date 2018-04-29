@@ -163,7 +163,7 @@ struct User* CreateUser()
         strncpy(userPtr->userName, ProcessMessage(16), 16);
 
         currentUser = userPtr;
-        
+
         PrintMessage(userPtr, userPtr->userName, 0, messageHistory);
     }
 
@@ -204,37 +204,45 @@ struct User* CreateUser()
     */
 char* ProcessMessage(int size)
 {
-    char* messagePtr = (char*)malloc(sizeof(char[size]));
+    /* Declaration */
+    char* messageStr = (char*)malloc(sizeof(char[size]));
+    const int cLAlign = 18;
+    int i;
+    /**/
 
     /* Print Standard UI */
     printf("%s\n", SYSTEMACTION);
-    printf("message > ");
-    scanf("%s", messagePtr);
+    printf("message >");
+
+    for (i = strlen("message >"); i < cLAlign; i++)
+        printf(" ");
+
+    scanf("%s", messageStr);
     printf("%s\n\n", SYSTEMACTION);
 
     /* Process the string */
     /* If it starts with "/", it contains a system call */
-    if (47 == messagePtr[0])
+    if (47 == messageStr[0])
     {
         /* If "/c", close the program */
-        if (99 == messagePtr[1])
+        if (99 == messageStr[1])
         {
             printf("Close the program\n");
 
-            free(messagePtr);
+            free(messageStr);
 
             exit(0);
         }
         /* If "/h", print help commands */
-        else if (104 == messagePtr[1])
+        else if (104 == messageStr[1])
         {
             printf("System commands: \n");
             printf("%s | %s\n", "/c", "Close the program");
             printf("%s | %s\n", "/h", "Help");
         }
 
-        free(messagePtr);
-        messagePtr = ProcessMessage(size);
+        free(messageStr);
+        messageStr = ProcessMessage(size);
     }
     else
     {
@@ -244,7 +252,7 @@ char* ProcessMessage(int size)
     PrintHistory(messageHistory->top);*/
 
     /* Return the string */
-    return messagePtr;
+    return messageStr;
 }
 
 void PrintMessage(struct User* user, char* messageStr, int woName, struct MessageHistory* historyPtr)
@@ -329,10 +337,6 @@ void AddMessage(struct MessageHistory* historyPtr, struct User* userPtr, char* m
 void PrintHistory(struct Message* currentMessage)
 {
     struct Message* iMessage;
-
-    if (NULL == currentMessage)
-        return;
-
 
     iMessage = currentMessage;
     while (NULL != iMessage)
