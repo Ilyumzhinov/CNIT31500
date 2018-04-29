@@ -1,7 +1,6 @@
 /* Compile:
     gcc cMessenger.c -o cMessenger
 */
-/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 #include <stdio.h>
 #include <sys/socket.h>
 #include <stdlib.h>
@@ -19,6 +18,55 @@ int CreateServer();
 int CreateClient();
 /**/
 
+
+/*FUNCTIONS*/
+/* A universal string processing method for systems calls
+    Allocates memory for a string with the size specified
+    By default, returns the pointer to the string 
+    */
+char* ProcessMessage(int size)
+{
+    char* messagePtr = (char*)malloc(sizeof(char[size]));
+
+    /* Print Standard UI */
+    printf("--------\n");
+    printf("message | ");
+    scanf("%s", messagePtr);
+    printf("--------\n\n");
+
+    /* Process the string */
+    if (47 != messagePtr[0])
+    {
+    }
+    else
+    {
+        /* If "\o" close the program */
+        if (99 == messagePtr[1])
+        {
+            /* Reference: https://stackoverflow.com/questions/7973583/how-can-i-immediately-close-a-program-in-c?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
+            printf("Close the program\n");
+
+            free(messagePtr);
+
+            exit(0);
+        }
+        /* If "\h" close the program */
+        else if (104 == messagePtr[1])
+        {
+            printf("System commands: \n");
+            printf("%s | %s\n", "/c", "Close the program");
+            printf("%s | %s\n", "/h", "Help");
+
+            free(messagePtr);
+            ProcessMessage(size);
+        }
+    }
+
+    /* Return the string */
+    return messagePtr;
+}
+
+/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateServer()
 {
     int server_fd, new_socket, valread;
@@ -34,15 +82,6 @@ int CreateServer()
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
-    
-    /* Breaks the program on Mac; is not nessesary */
-    /* Forcefully attaching socket to the port 8080*/
-    /*if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-                                                  &opt, sizeof(opt)))
-    {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }*/
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -73,6 +112,7 @@ int CreateServer()
     return 0;
 }
 
+/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateClient()
 {
     /* socket data */
@@ -99,8 +139,9 @@ int CreateClient()
     // Convert IPv4 and IPv6 addresses from text to binary form
     while (0 >= inet_pton(AF_INET, ipServer, &serv_addr.sin_addr))
     {
-        printf("enter IP:\n");
-        printf("-> ");scanf("%s",ipServer);
+        printf("Enter IP:\n");
+
+        strncpy(ipServer, ProcessMessage(64), 64);
 
         if(inet_pton(AF_INET, ipServer, &serv_addr.sin_addr)<=0) 
         {
@@ -124,26 +165,32 @@ int CreateClient()
 
 
 /* Main logic */
-main()
+int main()
 {
 	/**/
-	char menuChoice;
+	char menuChoice[1];
+    char* strPtr;
 	/**/
 
-	printf("Type in your name: ");
-	scanf("%s", &USERNAME);
+	printf("Type in your name:\n");
+    strncpy(USERNAME, ProcessMessage(32), 32);
 
+    printf("Named as \x1b[97;42m%s\x1b[0m\n", USERNAME);
 	printf("1: Open chat\n");
 	printf("2: Join chat\n");
-	printf("-> ");scanf("%s", &menuChoice);
+
+    while (menuChoice[0] < 49 || menuChoice[0] > 50)
+    {
+        strncpy(menuChoice, ProcessMessage(1), 1);
+    }
 
 	/* Open chat */
-	if (49 == menuChoice)
+	if (49 == menuChoice[0])
 	{
 		CreateServer();
 	}
     /* Join chat */
-    else if (50 == menuChoice)
+    else if (50 == menuChoice[0])
     {
         CreateClient();
     }
