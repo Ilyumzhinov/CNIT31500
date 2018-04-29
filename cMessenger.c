@@ -20,10 +20,12 @@ struct User
 };
 
 /* Functions prototypes */
-char* ProcessMessage(int);
 struct User* CreateUser();
 int CreateServer();
 int CreateClient();
+
+char* ProcessMessage(int);
+void PrintMessage(struct User*, char*, int);
 
 /* Global variables */
 /* Reference: https://stackoverflow.com/questions/11709929/how-to-initialize-a-pointer-to-a-struct-in-c */
@@ -139,7 +141,7 @@ struct User* CreateUser()
 
     /* Choose name */
     {
-        PrintMessage(systemUser, "Type in your nickname", 0, 1);
+        PrintMessage(systemUser, "Type in your nickname", 1);
         strncpy(userPtr->userName, ProcessMessage(16), 16);
     }
 
@@ -148,7 +150,7 @@ struct User* CreateUser()
         int i;
 
         /* Print various colors */
-        PrintMessage(systemUser, "Choose color", 0, 0);
+        PrintMessage(systemUser, "Choose color", 0);
         printf("%s\n", SYSTEMACTION);
         for (i = 1; i < 6; i++)
         {
@@ -213,14 +215,15 @@ char* ProcessMessage(int size)
     return messagePtr;
 }
 
-int PrintMessage(struct User* user, char* message, int isRight, int indentation)
+void PrintMessage(struct User* user, char* message, int indentation)
 {
     const int cLAlign = 18;
     const int cRAlign = 64;
+    int isRight = 0;
 
     if (user == currentUser)
     {
-        printf("yeap");
+        isRight = 1;
     }
 
     /* Print user name */
@@ -246,8 +249,6 @@ int PrintMessage(struct User* user, char* message, int isRight, int indentation)
     }
 
     printf("\x1b[97;%dm %s \x1b[0m\n", user->userColor, message);
-
-    return 0;
 }
 
 
@@ -260,11 +261,10 @@ int main()
 	/**/
 
     /* Welcome message */
-    PrintMessage(systemUser, "Welcome!", 0, 0);
+    PrintMessage(systemUser, "Welcome!", 0);
 
     /* Creating a user */
     currentUser = CreateUser();
-    PrintMessage(currentUser, "TESTSTSTTS STSJJDS SD!", 1, 0);
     /**/
 
     /* Printing main menu */
