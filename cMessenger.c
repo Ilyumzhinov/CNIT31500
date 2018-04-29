@@ -9,70 +9,30 @@
 
 #define PORT 8080
 
+#define SYSTEMACTION "--------------------"
+
 /*GLOBAL DECLARATION*/
 /* Structures */
 struct User
 {
-    char userName[32];
+    char userName[16];
     int userColor;
 };
 
 /* Functions prototypes */
 char* ProcessMessage(int);
 struct User* CreateUser();
-
 int CreateServer();
 int CreateClient();
+
+/* Global variables */
+/* Reference: https://stackoverflow.com/questions/11709929/how-to-initialize-a-pointer-to-a-struct-in-c */
+struct User* systemUser = &(struct User) { .userName = "cMessenger", .userColor = 100 };
+struct User* currentUser = NULL;
 /**/
 
 
 /*FUNCTIONS*/
-/* A universal string processing method that includes systems calls.
-    Allocates memory for a string with the size specified.
-    By default, returns the pointer to the string.
-    */
-char* ProcessMessage(int size)
-{
-    char* messagePtr = (char*)malloc(sizeof(char[size]));
-
-    /* Print Standard UI */
-    printf("--------\n");
-    printf("message > ");
-    scanf("%s", messagePtr);
-    printf("--------\n\n");
-
-    /* Process the string */
-    /* If it starts with "/", it contains a system call */
-    if (47 == messagePtr[0])
-    {
-        /* If "/c", close the program */
-        if (99 == messagePtr[1])
-        {
-            printf("Close the program\n");
-
-            free(messagePtr);
-
-            exit(0);
-        }
-        /* If "/h", print help commands */
-        else if (104 == messagePtr[1])
-        {
-            printf("System commands: \n");
-            printf("%s | %s\n", "/c", "Close the program");
-            printf("%s | %s\n", "/h", "Help");
-        }
-
-        free(messagePtr);
-        messagePtr = ProcessMessage(size);
-    }
-    else
-    {
-    }
-
-    /* Return the string */
-    return messagePtr;
-}
-
 /* Create a listening host using a socket */
 /* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateServer()
@@ -179,8 +139,8 @@ struct User* CreateUser()
 
     /* Choose name */
     {
-        printf("Type in your nickname:\n");
-        strncpy(userPtr->userName, ProcessMessage(32), 32);
+        PrintMessage(systemUser, "Type in your nickname", 0, 1);
+        strncpy(userPtr->userName, ProcessMessage(16), 16);
     }
 
     /* Choose color */
@@ -188,22 +148,106 @@ struct User* CreateUser()
         int i;
 
         /* Print various colors */
-        printf("Choose color:\n");
+        PrintMessage(systemUser, "Choose color", 0, 0);
+        printf("%s\n", SYSTEMACTION);
         for (i = 1; i < 6; i++)
         {
             printf("\x1b[97;%dm %d - %s \x1b[0m ", i + 40, i, "message");
         }
-        printf("\n");
+        printf("\n%s\n", SYSTEMACTION);
 
         while (userColorInput[0] < 49 || userColorInput[0] > 53)
         {
             strncpy(userColorInput, ProcessMessage(1), 1);
         }
 
-        userPtr->userColor = atoi(userColorInput);
+        userPtr->userColor = atoi(userColorInput) + 40;
     }
 
     return userPtr;
+}
+
+/* A universal string processing method that includes systems calls.
+    Allocates memory for a string with the size specified.
+    By default, returns the pointer to the string.
+    */
+char* ProcessMessage(int size)
+{
+    char* messagePtr = (char*)malloc(sizeof(char[size]));
+
+    /* Print Standard UI */
+    printf("%s\n", SYSTEMACTION);
+    printf("message > ");
+    scanf("%s", messagePtr);
+    printf("%s\n\n", SYSTEMACTION);
+
+    /* Process the string */
+    /* If it starts with "/", it contains a system call */
+    if (47 == messagePtr[0])
+    {
+        /* If "/c", close the program */
+        if (99 == messagePtr[1])
+        {
+            printf("Close the program\n");
+
+            free(messagePtr);
+
+            exit(0);
+        }
+        /* If "/h", print help commands */
+        else if (104 == messagePtr[1])
+        {
+            printf("System commands: \n");
+            printf("%s | %s\n", "/c", "Close the program");
+            printf("%s | %s\n", "/h", "Help");
+        }
+
+        free(messagePtr);
+        messagePtr = ProcessMessage(size);
+    }
+    else
+    {
+    }
+
+    /* Return the string */
+    return messagePtr;
+}
+
+int PrintMessage(struct User* user, char* message, int isRight, int indentation)
+{
+    const int cLAlign = 18;
+    const int cRAlign = 64;
+
+    if (user == currentUser)
+    {
+        printf("yeap");
+    }
+
+    /* Print user name */
+    if (0 == indentation)
+    {
+        printf("%s: ", user->userName);
+        indentation = strlen(user->userName) + 3;
+    }
+
+    while (indentation <= cLAlign)
+    {
+        printf(" ");
+        indentation++;
+    }
+
+    if (isRight)
+    {
+        while (indentation < (cRAlign - strlen(message) - strlen(user->userName)))
+        {
+            printf(" ");
+            indentation++;
+        }
+    }
+
+    printf("\x1b[97;%dm %s \x1b[0m\n", user->userColor, message);
+
+    return 0;
 }
 
 
@@ -213,16 +257,18 @@ int main()
 	/* Declaration */
 	char menuChoice[1];
     char* strPtr;
-
-    struct User* userPtr = NULL;
 	/**/
 
+    /* Welcome message */
+    PrintMessage(systemUser, "Welcome!", 0, 0);
+
     /* Creating a user */
-    userPtr = CreateUser();
+    currentUser = CreateUser();
+    PrintMessage(currentUser, "TESTSTSTTS STSJJDS SD!", 1, 0);
+    /**/
 
     /* Printing main menu */
     {
-        printf("User: \x1b[97;%dm %s \x1b[0m\n", userPtr->userColor + 40, userPtr->userName);
         printf("1 | Open chat\n");
         printf("2 | Join chat\n");
     }
