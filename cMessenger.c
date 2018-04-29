@@ -10,10 +10,17 @@
 #define PORT 8080
 
 /*GLOBAL DECLARATION*/
-/* Global variables */
-char USERNAME[32];
+/* Structures */
+struct User
+{
+    char userName[32];
+    int userColor;
+};
 
 /* Functions prototypes */
+char* ProcessMessage(int);
+struct User* CreateUser();
+
 int CreateServer();
 int CreateClient();
 /**/
@@ -30,7 +37,7 @@ char* ProcessMessage(int size)
 
     /* Print Standard UI */
     printf("--------\n");
-    printf("message | ");
+    printf("message > ");
     scanf("%s", messagePtr);
     printf("--------\n\n");
 
@@ -45,7 +52,7 @@ char* ProcessMessage(int size)
 
             free(messagePtr);
 
-             /* Reference: https://stackoverflow.com/questions/7973583/how-can-i-immediately-close-a-program-in-c?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
+            /* Reference: https://stackoverflow.com/questions/7973583/how-can-i-immediately-close-a-program-in-c?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
             exit(0);
         }
         /* If "/h", print help commands */
@@ -54,16 +61,17 @@ char* ProcessMessage(int size)
             printf("System commands: \n");
             printf("%s | %s\n", "/c", "Close the program");
             printf("%s | %s\n", "/h", "Help");
-
-            free(messagePtr);
-            ProcessMessage(size);
         }
+
+        free(messagePtr);
+        ProcessMessage(size);
     }
     else
     {
-        /* Return the string */
-        return messagePtr;
     }
+
+    /* Return the string */
+    return messagePtr;
 }
 
 /* Create a listening host using a socket */
@@ -165,22 +173,62 @@ int CreateClient()
     return 0;
 }
 
+struct User* CreateUser()
+{
+    struct User* userPtr = (struct User*)malloc(sizeof(struct User));
+    char userColorInput[1];
+
+    /* Choose name */
+    {
+        printf("Type in your nickname:\n");
+        strncpy(userPtr->userName, ProcessMessage(32), 32);
+    }
+
+    /* Choose color */
+    {
+        int i;
+
+        /* Print various colors */
+        printf("Choose color:\n");
+        for (i = 1; i < 7; i++)
+        {
+            printf("\x1b[97;%dm %d - %s \x1b[0m ", i + 40, i, "message");
+        }
+        printf("\n");
+
+        while (userColorInput[0] < 49 || userColorInput[0] > 54)
+        {
+            strncpy(userColorInput, ProcessMessage(1), 1);
+        }
+
+        userPtr->userColor = atoi(userColorInput);
+    }
+
+    return userPtr;
+}
+
 
 /* Main logic */
 int main()
 {
-	/**/
+	/* Declaration */
 	char menuChoice[1];
     char* strPtr;
+
+    struct User* userPtr = NULL;
 	/**/
 
-	printf("Type in your name:\n");
-    strncpy(USERNAME, ProcessMessage(32), 32);
+    /* Creating a user */
+    userPtr = CreateUser();
 
-    printf("Named as \x1b[97;42m%s\x1b[0m\n", USERNAME);
-	printf("1: Open chat\n");
-	printf("2: Join chat\n");
+    /* Printing main menu */
+    {
+        printf("User: \x1b[97;%dm%s\x1b[0m\n", userPtr->userColor + 40, userPtr->userName);
+        printf("1 | Open chat\n");
+        printf("2 | Join chat\n");
+    }
 
+    /* Processing the menu choice */
     while (menuChoice[0] < 49 || menuChoice[0] > 50)
     {
         strncpy(menuChoice, ProcessMessage(1), 1);
