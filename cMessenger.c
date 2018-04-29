@@ -19,18 +19,36 @@ struct User
     int userColor;
 };
 
+struct Message
+{
+    struct User* sender;
+
+    char* message;
+    int indentation;
+
+    struct Message* next;
+};
+
+struct MessageHistory
+{
+    struct Message* top;
+};
+
 /* Functions prototypes */
 struct User* CreateUser();
 int CreateServer();
 int CreateClient();
 
 char* ProcessMessage(int);
-void PrintMessage(struct User*, char*, int);
+void AddMessage(struct MessageHistory*, struct User*, char*, int);
+void PrintMessage(struct User*, char*, int, struct MessageHistory*);
+void PrintHistory(struct Message*);
 
 /* Global variables */
 /* Reference: https://stackoverflow.com/questions/11709929/how-to-initialize-a-pointer-to-a-struct-in-c */
 struct User* systemUser = &(struct User) { .userName = "cMessenger", .userColor = 100 };
 struct User* currentUser = NULL;
+struct MessageHistory* messageHistory = NULL;
 /**/
 
 
@@ -141,16 +159,22 @@ struct User* CreateUser()
 
     /* Choose name */
     {
-        PrintMessage(systemUser, "Type in your nickname", 1);
+        PrintMessage(systemUser, "Type in your nickname", 1, messageHistory);
         strncpy(userPtr->userName, ProcessMessage(16), 16);
+
+        currentUser = userPtr;
+        
+        PrintMessage(userPtr, userPtr->userName, 0, messageHistory);
     }
 
     /* Choose color */
     {
         int i;
+        char* tempColor = (char*)malloc(sizeof(char[64]));
 
         /* Print various colors */
-        PrintMessage(systemUser, "Choose color", 0);
+        PrintMessage(systemUser, "Choose color", 0, messageHistory);
+
         printf("%s\n", SYSTEMACTION);
         for (i = 1; i < 6; i++)
         {
@@ -164,6 +188,11 @@ struct User* CreateUser()
         }
 
         userPtr->userColor = atoi(userColorInput) + 40;
+
+        /* Reference: http://forums.codeguru.com/showthread.php?347081-itoa-error */
+        sprintf(tempColor, "%d", userPtr->userColor - 40);
+
+        PrintMessage(userPtr, tempColor, 0, messageHistory);
     }
 
     return userPtr;
@@ -211,29 +240,35 @@ char* ProcessMessage(int size)
     {
     }
 
+    /* system("clear");
+    PrintHistory(messageHistory->top);*/
+
     /* Return the string */
     return messagePtr;
 }
 
-void PrintMessage(struct User* user, char* message, int indentation)
+void PrintMessage(struct User* user, char* messageStr, int woName, struct MessageHistory* historyPtr)
 {
     const int cLAlign = 18;
     const int cRAlign = 64;
-    int isRight = 0;
+    int isRight = 0, indentation = 1;
 
-    if (user == currentUser)
+    if (NULL != currentUser)
     {
-        isRight = 1;
+        if (!strncmp(user->userName, currentUser->userName, 16))
+        {
+            isRight = 1;
+        }
     }
 
     /* Print user name */
-    if (0 == indentation)
+    if (0 == woName)
     {
         printf("%s: ", user->userName);
         indentation = strlen(user->userName) + 3;
     }
 
-    while (indentation <= cLAlign)
+    while (indentation < cLAlign)
     {
         printf(" ");
         indentation++;
@@ -241,14 +276,70 @@ void PrintMessage(struct User* user, char* message, int indentation)
 
     if (isRight)
     {
-        while (indentation < (cRAlign - strlen(message) - strlen(user->userName)))
+        while (indentation < (cRAlign - strlen(messageStr) - strlen(user->userName)))
         {
             printf(" ");
             indentation++;
         }
     }
 
-    printf("\x1b[97;%dm %s \x1b[0m\n", user->userColor, message);
+    printf("\x1b[97;%dm %s \x1b[0m\n", user->userColor, messageStr);
+
+    if (NULL != historyPtr)
+    {
+        AddMessage(historyPtr, user, messageStr, woName);
+    }
+}
+
+void AddMessage(struct MessageHistory* historyPtr, struct User* userPtr, char* messageStr, int indentation)
+{
+    struct Message* iMessage;
+    struct Message* tempMessage;
+
+    iMessage = historyPtr->top;
+    
+    /* Fill out the new message */
+    {
+        tempMessage = (struct Message*)malloc(sizeof(struct Message));
+        tempMessage->sender = userPtr;
+
+        tempMessage->message = messageStr;
+        tempMessage->indentation = indentation;
+
+        tempMessage->next = NULL;
+    }
+
+    if (NULL == iMessage)
+    {
+        historyPtr->top = tempMessage;
+
+        return;
+    }
+    else
+    {
+        while (NULL != iMessage->next)
+        {
+            iMessage = iMessage->next;
+        }
+
+        iMessage->next = tempMessage;
+    }
+}
+
+void PrintHistory(struct Message* currentMessage)
+{
+    struct Message* iMessage;
+
+    if (NULL == currentMessage)
+        return;
+
+
+    iMessage = currentMessage;
+    while (NULL != iMessage)
+    {
+        PrintMessage(iMessage->sender, iMessage->message, iMessage->indentation, NULL);
+        iMessage = iMessage->next;
+    }
 }
 
 
@@ -260,21 +351,30 @@ int main()
     char* strPtr;
 	/**/
 
-    /* Welcome message */
-    PrintMessage(systemUser, "Welcome!", 0);
+    messageHistory = (struct MessageHistory*)malloc(sizeof(struct MessageHistory));
+    messageHistory->top = NULL;
 
-    /* Creating a user */
-    currentUser = CreateUser();
-    /**/
+    if (NULL == currentUser)
+    {
+        /* Welcome message */
+        PrintMessage(systemUser, "Welcome!", 0, messageHistory);
+
+        /* Creating a user */
+        CreateUser();
+        /**/
+    }
 
     /* Printing main menu */
     {
+        PrintMessage(systemUser, "Choose from the options", 0, messageHistory);
+
         printf("1 | Open chat\n");
         printf("2 | Join chat\n");
+        printf("3 | Print history\n");
     }
 
     /* Processing the menu choice */
-    while (menuChoice[0] < 49 || menuChoice[0] > 50)
+    while (menuChoice[0] < 49 || menuChoice[0] > 51)
     {
         strncpy(menuChoice, ProcessMessage(1), 1);
     }
@@ -290,5 +390,10 @@ int main()
         CreateClient();
     }
 
-	return 0;
+    else if (51 == menuChoice[0])
+    {
+        PrintHistory(messageHistory->top);
+    }
+
+	main();
 }
