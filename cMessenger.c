@@ -27,9 +27,9 @@ int CreateClient();
 
 
 /*FUNCTIONS*/
-/* A universal string processing method for systems calls
-    Allocates memory for a string with the size specified
-    By default, returns the pointer to the string 
+/* A universal string processing method that includes systems calls.
+    Allocates memory for a string with the size specified.
+    By default, returns the pointer to the string.
     */
 char* ProcessMessage(int size)
 {
@@ -52,7 +52,6 @@ char* ProcessMessage(int size)
 
             free(messagePtr);
 
-            /* Reference: https://stackoverflow.com/questions/7973583/how-can-i-immediately-close-a-program-in-c?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
             exit(0);
         }
         /* If "/h", print help commands */
@@ -64,7 +63,7 @@ char* ProcessMessage(int size)
         }
 
         free(messagePtr);
-        ProcessMessage(size);
+        messagePtr = ProcessMessage(size);
     }
     else
     {
@@ -190,13 +189,13 @@ struct User* CreateUser()
 
         /* Print various colors */
         printf("Choose color:\n");
-        for (i = 1; i < 7; i++)
+        for (i = 1; i < 6; i++)
         {
             printf("\x1b[97;%dm %d - %s \x1b[0m ", i + 40, i, "message");
         }
         printf("\n");
 
-        while (userColorInput[0] < 49 || userColorInput[0] > 54)
+        while (userColorInput[0] < 49 || userColorInput[0] > 53)
         {
             strncpy(userColorInput, ProcessMessage(1), 1);
         }
@@ -223,7 +222,7 @@ int main()
 
     /* Printing main menu */
     {
-        printf("User: \x1b[97;%dm%s\x1b[0m\n", userPtr->userColor + 40, userPtr->userName);
+        printf("User: \x1b[97;%dm %s \x1b[0m\n", userPtr->userColor + 40, userPtr->userName);
         printf("1 | Open chat\n");
         printf("2 | Join chat\n");
     }
