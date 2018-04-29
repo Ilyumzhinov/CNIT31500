@@ -16,6 +16,8 @@
 struct User
 {
     char userName[16];
+
+    /* Reference: https://misc.flogisoft.com/bash/tip_colors_and_formatting */
     int userColor;
 };
 
@@ -41,13 +43,14 @@ int CreateClient();
 
 char* ProcessMessage(int);
 void AddMessage(struct MessageHistory*, struct User*, char*, int);
-void PrintMessage(struct User*, char*, int, struct MessageHistory*);
+void PrintMessage(struct User*, char*, int);
 void PrintHistory(struct Message*);
 
 /* Global variables */
 /* Reference: https://stackoverflow.com/questions/11709929/how-to-initialize-a-pointer-to-a-struct-in-c */
 struct User* systemUser = &(struct User) { .userName = "cMessenger", .userColor = 100 };
 struct User* currentUser = NULL;
+
 struct MessageHistory* messageHistory = NULL;
 /**/
 
@@ -128,9 +131,11 @@ int CreateClient()
     // Convert IPv4 and IPv6 addresses from text to binary form
     while (0 >= inet_pton(AF_INET, ipServer, &serv_addr.sin_addr))
     {
-        printf("Enter IP:\n");
+    	AddMessage(messageHistory, systemUser, "Enter IP", 0);
 
         strncpy(ipServer, ProcessMessage(64), 64);
+
+        AddMessage(messageHistory, currentUser, ipServer, 0);
 
         if(inet_pton(AF_INET, ipServer, &serv_addr.sin_addr)<=0) 
         {
@@ -144,11 +149,11 @@ int CreateClient()
         return -1;
     }
 
-
     send(sock, hello, strlen(hello), 0);
     printf("Client: Hello message sent\n");
     valread = read(sock, buffer, 1024);
     printf("%s\n", buffer);
+
     return 0;
 }
 
@@ -159,12 +164,13 @@ struct User* CreateUser()
 
     /* Choose name */
     {
-        PrintMessage(systemUser, "Type in your nickname", 1, messageHistory);
+    	AddMessage(messageHistory, systemUser, "Type in your nickname", 1);
+
         strncpy(userPtr->userName, ProcessMessage(16), 16);
 
         currentUser = userPtr;
 
-        PrintMessage(userPtr, userPtr->userName, 0, messageHistory);
+        AddMessage(messageHistory, userPtr, userPtr->userName, 0);
     }
 
     /* Choose color */
@@ -173,14 +179,17 @@ struct User* CreateUser()
         char* tempColor = (char*)malloc(sizeof(char[64]));
 
         /* Print various colors */
-        PrintMessage(systemUser, "Choose color", 0, messageHistory);
+        AddMessage(messageHistory, systemUser, "Choose color", 0);
 
-        printf("%s\n", SYSTEMACTION);
-        for (i = 1; i < 6; i++)
-        {
-            printf("\x1b[97;%dm %d - %s \x1b[0m ", i + 40, i, "message");
-        }
-        printf("\n%s\n", SYSTEMACTION);
+        /* Print system action */
+    	{
+	        printf("%s\n", SYSTEMACTION);
+	        for (i = 1; i < 6; i++)
+	        {
+	            printf("\x1b[97;%dm %d - %s \x1b[0m ", i + 40, i, "message");
+	        }
+	        printf("\n%s\n", SYSTEMACTION);
+    	}
 
         while (userColorInput[0] < 49 || userColorInput[0] > 53)
         {
@@ -192,7 +201,7 @@ struct User* CreateUser()
         /* Reference: http://forums.codeguru.com/showthread.php?347081-itoa-error */
         sprintf(tempColor, "%d", userPtr->userColor - 40);
 
-        PrintMessage(userPtr, tempColor, 0, messageHistory);
+        AddMessage(messageHistory, userPtr, tempColor, 0);
     }
 
     return userPtr;
@@ -210,15 +219,17 @@ char* ProcessMessage(int size)
     int i;
     /**/
 
-    /* Print Standard UI */
-    printf("%s\n", SYSTEMACTION);
-    printf("message >");
+    /* Print standard system action UI */
+    {
+	    printf("%s\n", SYSTEMACTION);
+	    printf("message >");
 
-    for (i = strlen("message >"); i < cLAlign; i++)
-        printf(" ");
+	    for (i = strlen("message >"); i < cLAlign; i++)
+	        printf(" ");
 
-    scanf("%s", messageStr);
-    printf("%s\n\n", SYSTEMACTION);
+	    scanf("%s", messageStr);
+	    printf("%s\n", SYSTEMACTION);
+	}
 
     /* Process the string */
     /* If it starts with "/", it contains a system call */
@@ -227,7 +238,7 @@ char* ProcessMessage(int size)
         /* If "/c", close the program */
         if (99 == messageStr[1])
         {
-            printf("Close the program\n");
+        	AddMessage(messageHistory, systemUser, "Goodbye!", 0);
 
             free(messageStr);
 
@@ -236,9 +247,11 @@ char* ProcessMessage(int size)
         /* If "/h", print help commands */
         else if (104 == messageStr[1])
         {
-            printf("System commands: \n");
-            printf("%s | %s\n", "/c", "Close the program");
-            printf("%s | %s\n", "/h", "Help");
+        	printf("%s\n", SYSTEMACTION);
+	    	PrintMessage(systemUser, "List of system commands", 0);
+	    	PrintMessage(systemUser, "/c | Close the program", 1);
+	    	PrintMessage(systemUser, "/h | Help", 1);
+	    	printf("%s\n", SYSTEMACTION);
         }
 
         free(messageStr);
@@ -248,14 +261,12 @@ char* ProcessMessage(int size)
     {
     }
 
-    /* system("clear");
-    PrintHistory(messageHistory->top);*/
-
     /* Return the string */
     return messageStr;
 }
 
-void PrintMessage(struct User* user, char* messageStr, int woName, struct MessageHistory* historyPtr)
+/* Print a message */
+void PrintMessage(struct User* user, char* messageStr, int woName)
 {
     const int cLAlign = 18;
     const int cRAlign = 64;
@@ -276,12 +287,14 @@ void PrintMessage(struct User* user, char* messageStr, int woName, struct Messag
         indentation = strlen(user->userName) + 3;
     }
 
+    /* Fill out the space before left alignment */
     while (indentation < cLAlign)
     {
         printf(" ");
         indentation++;
     }
 
+    /* If the message is right-aligned, align according to right alignment */
     if (isRight)
     {
         while (indentation < (cRAlign - strlen(messageStr) - strlen(user->userName)))
@@ -291,14 +304,11 @@ void PrintMessage(struct User* user, char* messageStr, int woName, struct Messag
         }
     }
 
+    /* Print the message */
     printf("\x1b[97;%dm %s \x1b[0m\n", user->userColor, messageStr);
-
-    if (NULL != historyPtr)
-    {
-        AddMessage(historyPtr, user, messageStr, woName);
-    }
 }
 
+/* Add a new node to the dynamic structure */
 void AddMessage(struct MessageHistory* historyPtr, struct User* userPtr, char* messageStr, int indentation)
 {
     struct Message* iMessage;
@@ -320,8 +330,6 @@ void AddMessage(struct MessageHistory* historyPtr, struct User* userPtr, char* m
     if (NULL == iMessage)
     {
         historyPtr->top = tempMessage;
-
-        return;
     }
     else
     {
@@ -332,16 +340,21 @@ void AddMessage(struct MessageHistory* historyPtr, struct User* userPtr, char* m
 
         iMessage->next = tempMessage;
     }
+
+    PrintHistory(messageHistory->top);
 }
 
+/* Traverse the dynamic strucre of messages */
 void PrintHistory(struct Message* currentMessage)
 {
     struct Message* iMessage;
 
+    system("clear");
+
     iMessage = currentMessage;
     while (NULL != iMessage)
     {
-        PrintMessage(iMessage->sender, iMessage->message, iMessage->indentation, NULL);
+        PrintMessage(iMessage->sender, iMessage->message, iMessage->indentation);
         iMessage = iMessage->next;
     }
 }
@@ -353,51 +366,54 @@ int main()
 	/* Declaration */
 	char menuChoice[1];
     char* strPtr;
-	/**/
 
     messageHistory = (struct MessageHistory*)malloc(sizeof(struct MessageHistory));
-    messageHistory->top = NULL;
+	messageHistory->top = NULL;
+	/**/
 
-    if (NULL == currentUser)
-    {
-        /* Welcome message */
-        PrintMessage(systemUser, "Welcome!", 0, messageHistory);
-
-        /* Creating a user */
-        CreateUser();
-        /**/
-    }
-
-    /* Printing main menu */
-    {
-        PrintMessage(systemUser, "Choose from the options", 0, messageHistory);
-
-        printf("1 | Open chat\n");
-        printf("2 | Join chat\n");
-        printf("3 | Print history\n");
-    }
-
-    /* Processing the menu choice */
-    while (menuChoice[0] < 49 || menuChoice[0] > 51)
-    {
-        strncpy(menuChoice, ProcessMessage(1), 1);
-    }
-
-	/* Open chat */
-	if (49 == menuChoice[0])
+	while (1 == 1)
 	{
-		CreateServer();
+		strncpy(menuChoice, "\0", 1);
+
+	    if (NULL == currentUser)
+	    {
+	        /* Welcome message */
+	       	AddMessage(messageHistory, systemUser, "Welcome!", 0);
+
+	        /* Creating a user */
+	        CreateUser();
+	        /**/
+	    }
+
+	    /* Printing main menu */
+	    {
+	    	AddMessage(messageHistory, systemUser, "Choose from the options", 0);
+
+	    	{
+	    		printf("%s\n", SYSTEMACTION);
+		    	PrintMessage(systemUser, "1 | Open chat", 1);
+		    	PrintMessage(systemUser, "2 | Join chat", 1);
+		    	printf("%s\n", SYSTEMACTION);
+		    }
+	    }
+
+	    /* Processing the menu choice */
+	    while (menuChoice[0] < 49 || menuChoice[0] > 50)
+	    {
+	        strncpy(menuChoice, ProcessMessage(1), 1);
+	    }
+
+	    AddMessage(messageHistory, currentUser, menuChoice, 0);
+
+		/* Open chat */
+		if (49 == menuChoice[0])
+		{
+			CreateServer();
+		}
+	    /* Join chat */
+	    else if (50 == menuChoice[0])
+	    {
+	        CreateClient();
+	    }
 	}
-    /* Join chat */
-    else if (50 == menuChoice[0])
-    {
-        CreateClient();
-    }
-
-    else if (51 == menuChoice[0])
-    {
-        PrintHistory(messageHistory->top);
-    }
-
-	main();
 }
