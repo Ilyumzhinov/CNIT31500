@@ -103,10 +103,11 @@ int CreateServer()
         exit(EXIT_FAILURE);
     }
 
+     printf("Server got connection from client %s\n", inet_ntoa(address.sin_addr));
+
     valread = read(new_socket, buffer, 1024);
     printf("%s\n", buffer);
     send(new_socket, hello, strlen(hello), 0);
-    printf("Server: Hello message sent\n");
     return 0;
 }
 
@@ -141,7 +142,18 @@ int CreateClient()
     	/* Receive an IP address from the user */
     	{
 	    	AddMessage(messageHistory, systemUser, "Enter IP", 0);
-	        strncpy(ipServer, ProcessMessage(64), 64);
+	    	{
+		    	printf("%s\n", SYSTEMACTION);
+			    PrintMessage(systemUser, "Type 'x' to connect to 127.0.0.1 (localhost)", 1);
+		        strncpy(ipServer, ProcessMessage(64), 64);
+
+		        if ('x' == ipServer[0])
+		        {
+		        	strncpy(ipServer, "127.0.0.1", 64);
+		        }
+	    	}
+
+
 	        AddMessage(messageHistory, currentUser, ipServer, 0);
     	}
 
@@ -158,7 +170,6 @@ int CreateClient()
     }
 
     send(sock, hello, strlen(hello), 0);
-    printf("Client: Hello message sent\n");
     valread = read(sock, buffer, 1024);
     printf("%s\n", buffer);
 
@@ -379,7 +390,7 @@ int main()
 	messageHistory->top = NULL;
 	/**/
 
-	while (1 == 1)
+	while (1)
 	{
 		strncpy(menuChoice, "\0", 1);
 
