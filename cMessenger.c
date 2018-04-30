@@ -2,16 +2,23 @@
     gcc cMessenger.c -o cMessenger
 */
 #include <stdio.h>
-#include <sys/socket.h>
 #include <stdlib.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define PORT 8080
+#define MAXSIZE 1024
+#define MAXPENDING 1
 
 #define SYSTEMACTION "--------------------"
+#define LALIGN 20
+#define RALIGN 80
 
 /*GLOBAL DECLARATION*/
 /* Structures */
@@ -43,7 +50,7 @@ struct User* CreateUser();
 int CreateServer();
 int CreateClient();
 
-char* ProcessMessage(int);
+char* ProcessMessage(int, int);
 void AddMessage(struct MessageHistory*, struct User*, char*, int);
 void PrintMessage(struct User*, char*, int);
 void PrintHistory(struct Message*);
@@ -52,6 +59,7 @@ void PrintHistory(struct Message*);
 /* Reference: https://stackoverflow.com/questions/11709929/how-to-initialize-a-pointer-to-a-struct-in-c */
 struct User* systemUser = &(struct User){ .userName = "cMessenger", .userColor = 100 };
 struct User* currentUser = NULL;
+struct User* connectionUser = NULL;
 
 struct MessageHistory* messageHistory = NULL;
 /**/
@@ -59,73 +67,149 @@ struct MessageHistory* messageHistory = NULL;
 
 /*FUNCTIONS*/
 /* Create a listening host using a socket */
-/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
+/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ 
+    https://codereview.stackexchange.com/questions/13461/two-way-communication-in-tcp-server-client-implementation?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
 int CreateServer()
 {
-	/* Socket data */
-    int server_fd, new_socket, valread;
-    struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    char buffer[1024] = {0};
-    char *hello = "Hello from server";
-    /**/
-      
-    /* Create socket file descriptor */
-    if (0 == (server_fd = socket(AF_INET, SOCK_STREAM, 0)))
+	int serverSocket; /* Socket descriptor for serverAddress */
+    int clientSocket; /* Socket descriptor for client */
+    int num;
+    struct sockaddr_in serverAddress; /* Local address */
+    struct sockaddr_in clientAddress; /* Client address */
+    unsigned int size;
+
+    const int cbufferSize = 32;
+    int bufferSize;
+    char buffer[MAXSIZE] = {0};
+
+    /* Create socket for incoming connections */
+    if (0 > (serverSocket = socket(AF_INET, SOCK_STREAM, 0))) 
     {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+        perror("Socket failure!!\n");
+        exit(1);
     }
 
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-      
-    /* Forcefully attach socket to the port 8080 */
-    if (0 > bind(server_fd, (struct sockaddr*)&address, sizeof(address)))
+    /* Construct local address structure */
+    memset(&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET; /* Internet address family */
+    serverAddress.sin_port = htons(PORT); /* Local port */
+    serverAddress.sin_addr.s_addr = INADDR_ANY;  /* Any incoming interface */
+
+    /* Bind to the local port */
+    if (0 > (bind(serverSocket, (struct sockaddr *)&serverAddress, sizeof(struct sockaddr ))))    
     {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
+        perror("Binding Failure\n");
+        exit(1);
     }
 
-    /* Wait for a client to make a connection */
-    if (0 > listen(server_fd, 3))
+    /* Mark the socket to listen for incoming connections */
+    if (0 > listen(serverSocket, MAXPENDING))
     {
-        perror("listen");
-        exit(EXIT_FAILURE);
+        perror("Listening Failure\n");
+        exit(1);
     }
 
-    /* Create a new connected socket and establish the connection */
-    if (0 > (new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)))
+    for(;;) 
     {
-        perror("accept");
-        exit(EXIT_FAILURE);
+        size = sizeof(struct sockaddr_in);
+
+        /* Wait for a client to connect */
+        if (0 > (clientSocket = accept(serverSocket, (struct sockaddr*)&serverAddress, &size))) 
+        {
+            perror("accept");
+            exit(1);
+        }
+
+        {
+            AddMessage(messageHistory, systemUser, "Server got connection from client", 0);
+
+            /*printf("Server got connection from client %s\n", inet_ntoa(serverAddress.sin_addr));*/
+
+            if (0 > (bufferSize = recv(clientSocket, buffer, cbufferSize, 0))) 
+            {
+                perror("recv");
+                break;
+            }
+            else if (0 == bufferSize) 
+            {
+                AddMessage(messageHistory, systemUser, "Connection closed", 0);
+
+                break;
+            }
+
+            PrintMessage(currentUser, buffer, 0);
+
+            connectionUser = (struct User*)malloc(sizeof(struct User));
+            strncpy(connectionUser->userName, buffer, 16);
+
+            connectionUser->userColor = atoi(buffer + 17);
+
+            /* userName userColor */
+            {
+                char userInfo[20];
+                char* tempColor = (char*)malloc(sizeof(char[1]));
+
+                strncpy(userInfo, currentUser->userName, 20);
+                sprintf(tempColor, "%d", (currentUser->userColor - 40));
+
+                userInfo[17] = *tempColor;
+
+                /*printf("server send: %s\n", userInfo);*/
+                send(clientSocket, userInfo, MAXSIZE-1, MAXSIZE-1);
+            }
+        }
+
+        for(;;)
+        {
+            if (0 > (bufferSize = recv(clientSocket, buffer, cbufferSize, 0))) 
+            {
+                perror("recv");
+                exit(1);
+            }
+            else if (0 == bufferSize) 
+            {
+                AddMessage(messageHistory, systemUser, "Connection closed", 0);
+
+                break;
+            }
+
+            AddMessage(messageHistory, connectionUser, buffer, 0);
+            
+            /* Send a message */
+            strncpy(buffer, ProcessMessage(MAXSIZE-1, 1), MAXSIZE-1);
+
+            if (0 > (send(clientSocket, buffer, strlen(buffer), 0))) 
+            {
+                perror("send");
+                close(clientSocket);
+                break;
+            }
+        }
+
+        close(clientSocket);
     }
 
-     printf("Server got connection from client %s\n", inet_ntoa(address.sin_addr));
-
-    valread = read(new_socket, buffer, 1024);
-    printf("%s\n", buffer);
-    send(new_socket, hello, strlen(hello), 0);
+    close(serverSocket);
     return 0;
 }
 
 /* Create a client by connecting to a listening socket at a specified IP address */
-/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
+/* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ 
+    https://codereview.stackexchange.com/questions/13461/two-way-communication-in-tcp-server-client-implementation?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa */
 int CreateClient()
 {
     /* Socket data */
+    int num;
+
     struct sockaddr_in address;
-    int sock = 0, valread;
+    int clientSocket = 0, valread;
     struct sockaddr_in serv_addr;
-    char *hello = "Hello from client";
-    char buffer[1024] = {0};
+    char buffer[MAXSIZE] = {0};
 
     char ipServer[64];
     /**/
 
-    if (0 > (sock = socket(AF_INET, SOCK_STREAM, 0)))
+    if (0 > (clientSocket = socket(AF_INET, SOCK_STREAM, 0)))
     {
         printf("\n Socket creation error \n");
         return -1;
@@ -140,22 +224,18 @@ int CreateClient()
     while (0 >= inet_pton(AF_INET, ipServer, &serv_addr.sin_addr))
     {
     	/* Receive an IP address from the user */
+    	AddMessage(messageHistory, systemUser, "Enter IP", 0);
+    	
     	{
-	    	AddMessage(messageHistory, systemUser, "Enter IP", 0);
-	    	{
-		    	printf("%s\n", SYSTEMACTION);
-			    PrintMessage(systemUser, "Type 'x' to connect to 127.0.0.1 (localhost)", 1);
-		        strncpy(ipServer, ProcessMessage(64), 64);
+	    	printf("%s\n", SYSTEMACTION);
+		    PrintMessage(systemUser, "Type 'x' to connect to localhost (127.0.0.1)", 1);
+	        strncpy(ipServer, ProcessMessage(64, 0), 64);
 
-		        if ('x' == ipServer[0])
-		        {
-		        	strncpy(ipServer, "127.0.0.1", 64);
-		        }
-	    	}
-
-
-	        AddMessage(messageHistory, currentUser, ipServer, 0);
+	        if ('x' == ipServer[0])
+	        	strncpy(ipServer, "127.0.0.1", 64);
     	}
+
+	    AddMessage(messageHistory, currentUser, ipServer, 0);
 
         if(0 >= inet_pton(AF_INET, ipServer, &serv_addr.sin_addr)) 
         {
@@ -163,15 +243,76 @@ int CreateClient()
         }
     }
   
-    if (0 > connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)))
+    if (0 > connect(clientSocket, (struct sockaddr*)&serv_addr, sizeof(serv_addr)))
     {
         printf("\nPort is closed \n");
         return -1;
     }
 
-    send(sock, hello, strlen(hello), 0);
-    valread = read(sock, buffer, 1024);
-    printf("%s\n", buffer);
+    /* Send and receive user information */
+    {
+        /* userName userColor */
+        char userInfo[20];
+        char* tempColor = (char*)malloc(sizeof(char[1]));
+
+        strncpy(userInfo, currentUser->userName, 20);
+        sprintf(tempColor, "%d", (currentUser->userColor - 40));
+
+        userInfo[17] = *tempColor;
+
+        /*printf("client to send: %s\n",userInfo);*/
+
+        send(clientSocket, userInfo, MAXSIZE-1, MAXSIZE-1);
+
+        if (0 > (num = recv(clientSocket, buffer, MAXSIZE, 0))) 
+        {
+            perror("recv");
+            return -1;
+        }
+        else if (0 == num) 
+        {
+            AddMessage(messageHistory, systemUser, "Connection closed", 0);
+
+            return -1;
+        }
+
+        PrintMessage(currentUser, buffer, 0);
+
+        connectionUser = (struct User*)malloc(sizeof(struct User));
+        strncpy(connectionUser->userName, buffer, 16);
+
+        connectionUser->userColor = atoi(buffer + 17);
+    }
+
+    for(;;)
+     {     
+        /* Send a message */
+        strncpy(buffer, ProcessMessage(MAXSIZE-1, 1), MAXSIZE-1);
+
+        AddMessage(messageHistory, currentUser, buffer, 0);
+
+        if (0 > (send(clientSocket,buffer, strlen(buffer),0))) 
+        {
+            printf("Failure Sending Message\n");
+
+            break;
+        }
+        else
+        {
+            num = recv(clientSocket, buffer, sizeof(buffer),0);
+
+            if ( num <= 0 )
+            {
+                AddMessage(messageHistory, systemUser, "Either Connection Closed or Error", 0);
+
+                /* Break from the While */
+                break;
+            }
+
+            AddMessage(messageHistory, connectionUser, buffer, 0);
+       }
+    }
+    close(clientSocket);
 
     return 0;
 }
@@ -185,7 +326,7 @@ struct User* CreateUser()
     {
     	AddMessage(messageHistory, systemUser, "Type in your nickname", 1);
 
-        strncpy(userPtr->userName, ProcessMessage(16), 16);
+        strncpy(userPtr->userName, ProcessMessage(16, 0), 16);
 
         currentUser = userPtr;
 
@@ -212,7 +353,7 @@ struct User* CreateUser()
 
         while (userColorInput[0] < 49 || userColorInput[0] > 53)
         {
-            strncpy(userColorInput, ProcessMessage(1), 1);
+            strncpy(userColorInput, ProcessMessage(1, 0), 1);
         }
 
         userPtr->userColor = atoi(userColorInput) + 40;
@@ -230,11 +371,10 @@ struct User* CreateUser()
     Allocates memory for a string with the size specified.
     By default, returns the pointer to the string.
     */
-char* ProcessMessage(int size)
+char* ProcessMessage(int size, int isInChat)
 {
     /* Declaration */
     char* messageStr = (char*)malloc(sizeof(char[size]));
-    const int cLAlign = 18;
     int i;
     /**/
 
@@ -243,7 +383,7 @@ char* ProcessMessage(int size)
 	    printf("%s\n", SYSTEMACTION);
 	    printf("message >");
 
-	    for (i = strlen("message >"); i < cLAlign; i++)
+	    for (i = strlen("message >"); i < LALIGN; i++)
 	        printf(" ");
 
 	    scanf("%s", messageStr);
@@ -274,10 +414,12 @@ char* ProcessMessage(int size)
         }
 
         free(messageStr);
-        messageStr = ProcessMessage(size);
+        messageStr = ProcessMessage(size, 0);
     }
-    else
+
+    if (1 == isInChat)
     {
+        fgets(messageStr, size, stdin);
     }
 
     /* Return the string */
@@ -287,8 +429,6 @@ char* ProcessMessage(int size)
 /* Print a message */
 void PrintMessage(struct User* user, char* messageStr, int woName)
 {
-    const int cLAlign = 18;
-    const int cRAlign = 64;
     int isRight = 0, indentation = 1;
 
     if (NULL != currentUser)
@@ -307,7 +447,7 @@ void PrintMessage(struct User* user, char* messageStr, int woName)
     }
 
     /* Fill out the space before left alignment */
-    while (indentation < cLAlign)
+    while (indentation < LALIGN)
     {
         printf(" ");
         indentation++;
@@ -316,7 +456,7 @@ void PrintMessage(struct User* user, char* messageStr, int woName)
     /* If the message is right-aligned, align according to right alignment */
     if (isRight)
     {
-        while (indentation < (cRAlign - strlen(messageStr) - strlen(user->userName)))
+        while (indentation < (RALIGN - strlen(messageStr) - strlen(user->userName)))
         {
             printf(" ");
             indentation++;
@@ -390,7 +530,7 @@ int main()
 	messageHistory->top = NULL;
 	/**/
 
-	while (1)
+	for(;;)
 	{
 		strncpy(menuChoice, "\0", 1);
 
@@ -419,7 +559,7 @@ int main()
 	    /* Processing the menu choice */
 	    while (menuChoice[0] < 49 || menuChoice[0] > 50)
 	    {
-	        strncpy(menuChoice, ProcessMessage(1), 1);
+	        strncpy(menuChoice, ProcessMessage(1, 0), 1);
 	    }
 
 	    AddMessage(messageHistory, currentUser, menuChoice, 0);
