@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 #define PORT 8080
 
@@ -48,7 +50,7 @@ void PrintHistory(struct Message*);
 
 /* Global variables */
 /* Reference: https://stackoverflow.com/questions/11709929/how-to-initialize-a-pointer-to-a-struct-in-c */
-struct User* systemUser = &(struct User) { .userName = "cMessenger", .userColor = 100 };
+struct User* systemUser = &(struct User){ .userName = "cMessenger", .userColor = 100 };
 struct User* currentUser = NULL;
 
 struct MessageHistory* messageHistory = NULL;
@@ -60,15 +62,17 @@ struct MessageHistory* messageHistory = NULL;
 /* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateServer()
 {
+	/* Socket data */
     int server_fd, new_socket, valread;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
     char *hello = "Hello from server";
+    /**/
       
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    /* Create socket file descriptor */
+    if (0 == (server_fd = socket(AF_INET, SOCK_STREAM, 0)))
     {
         perror("socket failed");
         exit(EXIT_FAILURE);
@@ -76,26 +80,29 @@ int CreateServer()
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( PORT );
+    address.sin_port = htons(PORT);
       
-    // Forcefully attaching socket to the port 8080
-    if (bind(server_fd, (struct sockaddr *)&address, 
-                                 sizeof(address))<0)
+    /* Forcefully attach socket to the port 8080 */
+    if (0 > bind(server_fd, (struct sockaddr*)&address, sizeof(address)))
     {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-    if (listen(server_fd, 3) < 0)
+
+    /* Wait for a client to make a connection */
+    if (0 > listen(server_fd, 3))
     {
         perror("listen");
         exit(EXIT_FAILURE);
     }
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
-                       (socklen_t*)&addrlen))<0)
+
+    /* Create a new connected socket and establish the connection */
+    if (0 > (new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)))
     {
         perror("accept");
         exit(EXIT_FAILURE);
     }
+
     valread = read(new_socket, buffer, 1024);
     printf("%s\n", buffer);
     send(new_socket, hello, strlen(hello), 0);
@@ -107,7 +114,7 @@ int CreateServer()
 /* Source code: https://www.geeksforgeeks.org/socket-programming-cc/ */
 int CreateClient()
 {
-    /* socket data */
+    /* Socket data */
     struct sockaddr_in address;
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
@@ -117,7 +124,7 @@ int CreateClient()
     char ipServer[64];
     /**/
 
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if (0 > (sock = socket(AF_INET, SOCK_STREAM, 0)))
     {
         printf("\n Socket creation error \n");
         return -1;
@@ -128,22 +135,23 @@ int CreateClient()
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
       
-    // Convert IPv4 and IPv6 addresses from text to binary form
+    /* Convert IPv4 and IPv6 addresses from text to binary form */
     while (0 >= inet_pton(AF_INET, ipServer, &serv_addr.sin_addr))
     {
-    	AddMessage(messageHistory, systemUser, "Enter IP", 0);
+    	/* Receive an IP address from the user */
+    	{
+	    	AddMessage(messageHistory, systemUser, "Enter IP", 0);
+	        strncpy(ipServer, ProcessMessage(64), 64);
+	        AddMessage(messageHistory, currentUser, ipServer, 0);
+    	}
 
-        strncpy(ipServer, ProcessMessage(64), 64);
-
-        AddMessage(messageHistory, currentUser, ipServer, 0);
-
-        if(inet_pton(AF_INET, ipServer, &serv_addr.sin_addr)<=0) 
+        if(0 >= inet_pton(AF_INET, ipServer, &serv_addr.sin_addr)) 
         {
-            printf("\nInvalid address/ Address not supported \n");
+            printf("\nInvalid address or address not supported \n");
         }
     }
   
-    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
+    if (0 > connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)))
     {
         printf("\nPort is closed \n");
         return -1;
